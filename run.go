@@ -1,6 +1,7 @@
 package pty
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"syscall"
@@ -19,6 +20,26 @@ func Start(c *exec.Cmd) (pty *os.File, err error) {
 	c.Stdin = tty
 	c.Stderr = tty
 	c.SysProcAttr = &syscall.SysProcAttr{Setctty: true, Setsid: true}
+	err = c.Start()
+	if err != nil {
+		pty.Close()
+		return nil, err
+	}
+	return pty, err
+}
+
+type runner interface {
+	SetReadWriteCloser(io.Reader, io.Writer, io.Closer)
+	Start() error
+}
+
+//StartFaker allows for handing in an interface that can act like a process
+func StartFaker(c runner) (pty *os.File, err error) {
+	pty, tty, err := Open()
+	if err != nil {
+		return nil, err
+	}
+	c.SetReadWriteCloser(tty, tty, tty)
 	err = c.Start()
 	if err != nil {
 		pty.Close()
